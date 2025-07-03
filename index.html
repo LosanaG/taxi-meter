@@ -8,70 +8,65 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
   body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    text-align: center;
-    padding: 20px;
-    background: linear-gradient(135deg, #89f7fe, #66a6ff);
-    color: #333;
-  }
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #89f7fe, #66a6ff);
+  color: #333;
+}
 
-  h1 {
-    font-size: 2.5em;
-    color: #fff;
-    text-shadow: 2px 2px 5px #333;
-  }
+h1 {
+  font-size: 2.5em;
+  color: #fff;
+}
 
-  #fare {
-    font-size: 3em;
-    margin: 20px;
-    color: #00ff99;
-    text-shadow: 1px 1px 3px #000;
-  }
+label {
+  font-size: 1.2em;
+  color: #fff;
+}
 
-  label {
-    display: block;
-    margin: 10px 0 5px;
-    font-size: 1.2em;
-    color: #fff;
-  }
+input {
+  font-size: 1.2em;
+  padding: 5px;
+  margin: 5px;
+  border-radius: 5px;
+  border: none;
+}
 
-  input[type="number"] {
-    padding: 10px;
-    border-radius: 10px;
-    border: 2px solid #fff;
-    width: 120px;
-    font-size: 1em;
-    margin-bottom: 15px;
-  }
+#fare {
+  font-size: 3em;
+  margin: 20px 0;
+  color: #00c853;
+}
 
-  button {
-    padding: 12px 25px;
-    margin: 10px;
-    border: none;
-    border-radius: 25px;
-    font-size: 1.1em;
-    color: white;
-    cursor: pointer;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
-  }
+button {
+  font-size: 1.2em;
+  padding: 10px 20px;
+  margin: 5px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
 
-  button:active {
-    transform: scale(0.95);
-  }
+button.start {
+  background-color: #4caf50;
+  color: white;
+}
 
-  .start {
-    background: #28a745; /* green */
-  }
+button.stop {
+  background-color: #f44336;
+  color: white;
+}
 
-  .stop {
-    background: #dc3545; /* red */
-  }
+button.reset {
+  background-color: #9e9e9e;
+  color: white;
+}
 
-  .reset {
-    background: #ffc107; /* yellow/orange */
-    color: #333;
-  }
+button:hover {
+  opacity: 0.8;
+}
   </style>
 </head>
 <body>
