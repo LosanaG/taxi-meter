@@ -1,172 +1,154 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>My GPS Taxi Meter App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <title>GPS Taxi Meter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-  body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  text-align: center;
-  padding: 20px;
-  background: linear-gradient(135deg, #89f7fe, #66a6ff);
-  color: #333;
-}
-
-h1 {
-  font-size: 2.5em;
-  color: #fff;
-}
-
-label {
-  font-size: 1.2em;
-  color: #fff;
-}
-
-input {
-  font-size: 1.2em;
-  padding: 5px;
-  margin: 5px;
-  border-radius: 5px;
-  border: none;
-}
-
-#fare {
-  font-size: 3em;
-  margin: 20px 0;
-  color: #00c853;
-}
-
-button {
-  font-size: 1.2em;
-  padding: 10px 20px;
-  margin: 5px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: 0.3s;
-}
-
-button.start {
-  background-color: #4caf50;
-  color: white;
-}
-
-button.stop {
-  background-color: #f44336;
-  color: white;
-}
-
-button.reset {
-  background-color: #9e9e9e;
-  color: white;
-}
-
-button:hover {
-  opacity: 0.8;
-}
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      color: #333;
+    }
+    h1 {
+      font-size: 2.5em;
+      color: #fff;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-size: 1.2em;
+      color: #fff;
+    }
+    input {
+      font-size: 1.2em;
+      padding: 5px;
+      margin-top: 5px;
+      border-radius: 5px;
+      border: none;
+    }
+    #fare {
+      font-size: 3em;
+      margin: 20px 0;
+      color: #28a745;
+    }
+    button {
+      font-size: 1.2em;
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
+    }
+    button.start {
+      background-color: #28a745;
+    }
+    button.stop {
+      background-color: #dc3545;
+    }
+    button.reset {
+      background-color: #6c757d;
+    }
   </style>
 </head>
 <body>
-  <img src="Taxi_Meter_Calculator_Styled_Extra.xlsx" alt="Promo Image" class="promo">
-  <h1>My GPS Taxi Meter App</h1>
-  <label>Base Fare: $<input type="number" id="baseFare" value="3"></label><br>
-  <label>Per km: $<input type="number" id="ratePerKm" value="1"></label><br>
-  <label>Per minute: $<input type="number" id="ratePerMin" value="0.5"></label>
+  <h1>GPS Taxi Meter</h1>
+  <label>Base Fare: $<input type="number" id="baseFare" step="0.1"></label>
+  <label>Per km: $<input type="number" id="perKm" value="1" step="0.1"></label>
+  <label>Per minute: $<input type="number" id="perMinute" value="0.3" step="0.1"></label>
   <div id="fare">$0.00</div>
   <button class="start" onclick="startMeter()">Start</button>
   <button class="stop" onclick="stopMeter()">Stop</button>
   <button class="reset" onclick="resetMeter()">Reset</button>
-  <div id="map"></div>
 
   <script>
-    let startTime, interval, watchId, distance = 0, lastPosition = null, running = false;
-    let map, marker;
+    let fare = 0;
+    let distance = 0;
+    let timeMinutes = 0;
+    let interval;
+    let watching = false;
+    let startTime, watchId;
+    let lastPosition;
 
-    function initMap() {
-      map = L.map('map').setView([0, 0], 2);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+    // Set base fare automatically
+    function setBaseFareByTime() {
+      const now = new Date();
+      const hour = now.getHours();
+      let baseFare = 2.0;
+      if (hour >= 22 || hour < 5) {
+        baseFare = 3.0;
+      }
+      document.getElementById('baseFare').value = baseFare;
     }
 
+    setBaseFareByTime();
+
     function startMeter() {
-      if (!running) {
-        startTime = Date.now();
-        distance = 0;
-        lastPosition = null;
-        initMap();
-        watchId = navigator.geolocation.watchPosition(updatePosition, handleError, { enableHighAccuracy: true });
-        interval = setInterval(updateFare, 1000);
-        running = true;
+      if (watching) return;
+      watching = true;
+      fare = parseFloat(document.getElementById('baseFare').value);
+      distance = 0;
+      timeMinutes = 0;
+      startTime = new Date();
+      interval = setInterval(updateFare, 60000); // every minute
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(updateDistance);
       }
+      updateDisplay();
+    }
+
+    function updateFare() {
+      let perMinute = parseFloat(document.getElementById('perMinute').value);
+      fare += perMinute;
+      timeMinutes++;
+      updateDisplay();
+    }
+
+    function updateDistance(position) {
+      if (lastPosition) {
+        const R = 6371; // km
+        const dLat = (position.coords.latitude - lastPosition.latitude) * Math.PI / 180;
+        const dLon = (position.coords.longitude - lastPosition.longitude) * Math.PI / 180;
+        const lat1 = lastPosition.latitude * Math.PI / 180;
+        const lat2 = position.coords.latitude * Math.PI / 180;
+
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const d = R * c;
+
+        let perKm = parseFloat(document.getElementById('perKm').value);
+        fare += d * perKm;
+        distance += d;
+        updateDisplay();
+      }
+      lastPosition = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      };
     }
 
     function stopMeter() {
+      if (!watching) return;
       clearInterval(interval);
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      running = false;
+      navigator.geolocation.clearWatch(watchId);
+      watching = false;
     }
 
     function resetMeter() {
       stopMeter();
-      document.getElementById('fare').innerText = "$0.00";
+      fare = 0;
       distance = 0;
-      lastPosition = null;
-      if (map) map.remove();
-      document.getElementById('map').innerHTML = "";
+      timeMinutes = 0;
+      document.getElementById('fare').innerText = '$0.00';
+      setBaseFareByTime();
     }
 
-    function updatePosition(position) {
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
-      if (!lastPosition) {
-        lastPosition = { lat, lon };
-        if (map) {
-          map.setView([lat, lon], 15);
-          marker = L.marker([lat, lon]).addTo(map);
-        }
-      } else {
-        const d = getDistanceFromLatLonInKm(lastPosition.lat, lastPosition.lon, lat, lon);
-        distance += d;
-        lastPosition = { lat, lon };
-        if (map && marker) {
-          marker.setLatLng([lat, lon]);
-          map.panTo([lat, lon]);
-        }
-      }
-    }
-
-    function updateFare() {
-      const baseFare = parseFloat(document.getElementById('baseFare').value);
-      const ratePerKm = parseFloat(document.getElementById('ratePerKm').value);
-      const ratePerMin = parseFloat(document.getElementById('ratePerMin').value);
-      const timeElapsed = (Date.now() - startTime) / 60000; // in minutes
-      const fare = baseFare + (distance * ratePerKm) + (timeElapsed * ratePerMin);
-      document.getElementById('fare').innerText = "$" + fare.toFixed(2);
-    }
-
-    function handleError(error) {
-      console.log(error);
-    }
-
-    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const dLat = deg2rad(lat2 - lat1);
-      const dLon = deg2rad(lon2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    function deg2rad(deg) {
-      return deg * (Math.PI / 180);
+    function updateDisplay() {
+      document.getElementById('fare').innerText = '$' + fare.toFixed(2);
     }
   </script>
 </body>
-</html>
+</html
