@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GPS Taxi Meter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 10px; background: #f2f2f2; }
+    #fare { font-size: 2.5em; margin: 10px; color: #2e7d32; }
+    #map { height: 300px; margin-top: 10px; }
+    button { font-size: 1.1em; padding: 10px 20px; margin: 5px; border-radius: 8px; border: none; cursor: pointer; }
+    .start { background: #4caf50; color: white; }
+    .stop { background: #f44336; color: white; }
+    .reset { background: #9e9e9e; color: white; }
+    input { font-size: 1em; margin: 5px; width: 80px; }
+  </style>
+</head>
+<body>
+  <h1>GPS Taxi Meter</h1>
+  <div>
+    <label>Base Fare: $<input type="number" id="baseFare" value="3"></label><br>
+    <label>Per km: $<input type="number" id="ratePerKm" value="1"></label><br>
+    <label>Per minute: $<input type="number" id="ratePerMin" value="0.5"></label>
+  </div>
+  <div id="fare">$0.00</div>
+  <button class="start" onclick="startMeter()">Start</button>
+  <button class="stop" onclick="stopMeter()">Stop</button>
+  <button class="reset" onclick="resetMeter()">Reset</button>
+  <div id="map"></div>
+
+  <script>
+    let startTime, interval, watchId, distance = 0, lastPosition = null, running = false;
+    let map, marker;
+
+    function initMap() {
+      map = L.map('map').setView([0, 0], 2);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+    }
+
+    function startMeter() {
+      if (!running) {
+        startTime = Date.now();
+        distance = 0;
+        lastPosition = null;
+        initMap();
+        watchId = navigator.geolocation.watchPosition(updatePosition, handleError, { enableHighAccuracy: true });
+        interval = setInterval(updateFare, 1000);
+        running = true;
+      }
+    }
+
+    function stopMeter() {
+      clearInterval(interval);
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      running = false;
+    }
+
+    function resetMeter() {
+      stopMeter();
+      document.getElementById('fare').innerText = "$0.00";
+      distance = 0;
+      lastPosition = null;
+      if (map) map.remove();
+      document.getElementById('map').innerHTML = "";
+    }
+
+    function updatePosition(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      if (!marker) {
+        map.setView([lat, lon], 15);
+        marker = L.marker([lat, lon]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lon]);
+      }
+      if (lastPosition) {
+        distance += calculateDistance(
+          lastPosition.coords.latitude,
+          lastPosition.coords.longitude,
+          lat,
+          lon
+        );
+      }
+      lastPosition = position;
+    }
+
+    function updateFare() {
+      const baseFare = parseFloat(document.getElementById('baseFare').value);
+      const ratePerKm = parseFloat(document.getElementById('ratePerKm').value);
+      const ratePerMin = parseFloat(document.getElementById('ratePerMin').value);
+      const elapsedTimeMin = (Date.now() - startTime) / 60000;
+      const fare = baseFare + (ratePerKm * distance) + (ratePerMin * elapsedTimeMin);
+      document.getElementById('fare').innerText = "$" + fare.toFixed(2);
+    }
+
+    function handleError(error) {
+      alert("Error getting location: " + error.message);
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(() => console.log("Service Worker Registered"));
+    }
+  </script>
+</body>
+</html>
