@@ -7,23 +7,62 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 10px; background: #f2f2f2; }
-    #fare { font-size: 2.5em; margin: 10px; color: #2e7d32; }
-    #map { height: 300px; margin-top: 10px; }
-    button { font-size: 1.1em; padding: 10px 20px; margin: 5px; border-radius: 8px; border: none; cursor: pointer; }
-    .start { background: #4caf50; color: white; }
-    .stop { background: #f44336; color: white; }
-    .reset { background: #9e9e9e; color: white; }
-    input { font-size: 1em; margin: 5px; width: 80px; }
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 10px;
+      background: #f2f2f2;
+    }
+    #fare {
+      font-size: 2.5em;
+      margin: 10px;
+      color: #2ed732;
+    }
+    #map {
+      height: 300px;
+      margin-top: 10px;
+    }
+    .start {
+      background: #ff0000; /* Red (Rasta) */
+      color: white;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    .stop {
+      background: #ffff00; /* Yellow (Rasta) */
+      color: black;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    .reset {
+      background: #00ff00; /* Green (Rasta) */
+      color: black;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    img.promo {
+      max-width: 100%;
+      height: auto;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
+  <img src="Taxi_Meter_Calculator_Styled_Extra.xlsx" alt="Promo Image" class="promo">
   <h1>GPS Taxi Meter</h1>
-  <div>
-    <label>Base Fare: $<input type="number" id="baseFare" value="3"></label><br>
-    <label>Per km: $<input type="number" id="ratePerKm" value="1"></label><br>
-    <label>Per minute: $<input type="number" id="ratePerMin" value="0.5"></label>
-  </div>
+  <label>Base Fare: $<input type="number" id="baseFare" value="3"></label><br>
+  <label>Per km: $<input type="number" id="ratePerKm" value="1"></label><br>
+  <label>Per minute: $<input type="number" id="ratePerMin" value="0.5"></label>
   <div id="fare">$0.00</div>
   <button class="start" onclick="startMeter()">Start</button>
   <button class="stop" onclick="stopMeter()">Stop</button>
@@ -71,50 +110,50 @@
     function updatePosition(position) {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
-      if (!marker) {
-        map.setView([lat, lon], 15);
-        marker = L.marker([lat, lon]).addTo(map);
+      if (!lastPosition) {
+        lastPosition = { lat, lon };
+        if (map) {
+          map.setView([lat, lon], 15);
+          marker = L.marker([lat, lon]).addTo(map);
+        }
       } else {
-        marker.setLatLng([lat, lon]);
+        const d = getDistanceFromLatLonInKm(lastPosition.lat, lastPosition.lon, lat, lon);
+        distance += d;
+        lastPosition = { lat, lon };
+        if (map && marker) {
+          marker.setLatLng([lat, lon]);
+          map.panTo([lat, lon]);
+        }
       }
-      if (lastPosition) {
-        distance += calculateDistance(
-          lastPosition.coords.latitude,
-          lastPosition.coords.longitude,
-          lat,
-          lon
-        );
-      }
-      lastPosition = position;
     }
 
     function updateFare() {
       const baseFare = parseFloat(document.getElementById('baseFare').value);
       const ratePerKm = parseFloat(document.getElementById('ratePerKm').value);
       const ratePerMin = parseFloat(document.getElementById('ratePerMin').value);
-      const elapsedTimeMin = (Date.now() - startTime) / 60000;
-      const fare = baseFare + (ratePerKm * distance) + (ratePerMin * elapsedTimeMin);
+      const timeElapsed = (Date.now() - startTime) / 60000; // in minutes
+      const fare = baseFare + (distance * ratePerKm) + (timeElapsed * ratePerMin);
       document.getElementById('fare').innerText = "$" + fare.toFixed(2);
     }
 
     function handleError(error) {
-      alert("Error getting location: " + error.message);
+      console.log(error);
     }
 
-    function calculateDistance(lat1, lon1, lat2, lon2) {
+    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
       const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const dLat = deg2rad(lat2 - lat1);
+      const dLon = deg2rad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log("Service Worker Registered"));
+    function deg2rad(deg) {
+      return deg * (Math.PI / 180);
     }
   </script>
 </body>
