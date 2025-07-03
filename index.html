@@ -2,64 +2,49 @@
 <html>
 <head>
   <title>GPS Taxi Meter</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: Arial, sans-serif;
       text-align: center;
+      background: linear-gradient(to bottom right, #6dd5fa, #2980b9);
+      color: white;
       padding: 20px;
-      background: linear-gradient(135deg, #89f7fe, #66a6ff);
-      color: #333;
-    }
-    h1 {
-      font-size: 2.5em;
-      color: #fff;
-    }
-    label {
-      font-size: 1.2em;
-      color: #fff;
     }
     input {
       font-size: 1.2em;
-      padding: 5px;
       margin: 5px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-    #fare {
-      font-size: 3em;
-      margin: 20px 0;
-      color: #00ff7f;
+      padding: 5px;
     }
     button {
       font-size: 1.2em;
+      margin: 10px;
       padding: 10px 20px;
-      margin: 5px;
       border: none;
       border-radius: 5px;
       cursor: pointer;
     }
-    button.start {
-      background-color: #4CAF50;
-      color: white;
+    #fare {
+      font-size: 2.5em;
+      margin-top: 20px;
+      color: lime;
     }
-    button.stop {
-      background-color: #f44336;
-      color: white;
+    #distance {
+      font-size: 1.5em;
+      margin-top: 10px;
+      color: #ffeb3b;
     }
-    button.reset {
-      background-color: #777;
-      color: white;
-    }
+    .start { background-color: green; color: white; }
+    .stop { background-color: red; color: white; }
+    .reset { background-color: gray; color: white; }
   </style>
 </head>
 <body>
   <h1>GPS Taxi Meter</h1>
-  <label>Base Fare: $<input type="number" id="baseFare" value="2" step="0.1"></label><br>
+  <label>Base Fare: $<input type="number" id="baseFare" step="0.1"></label><br>
   <label>Per km: $<input type="number" id="perKm" value="1" step="0.1"></label><br>
   <label>Per minute: $<input type="number" id="perMin" value="0.5" step="0.1"></label><br>
   <div id="fare">$0.00</div>
+  <div id="distance">Distance: 0.00 km</div>
   <button class="start" onclick="startMeter()">Start</button>
   <button class="stop" onclick="stopMeter()">Stop</button>
   <button class="reset" onclick="resetMeter()">Reset</button>
@@ -92,25 +77,30 @@
       distance = 0;
       timeMinutes = 0;
       startTime = new Date();
+      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
+      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
 
-      watchId = navigator.geolocation.watchPosition(updatePosition, handleError, {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000
-      });
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(updatePosition, errorPosition, {
+          enableHighAccuracy: true
+        });
+      } else {
+        alert("Geolocation is not supported by this browser.");
+      }
 
       interval = setInterval(() => {
-        const now = new Date();
-        timeMinutes = (now - startTime) / 60000;
-        calculateFare();
-      }, 1000);
+        timeMinutes++;
+        updateFare();
+      }, 60000);
     }
 
     function stopMeter() {
       if (!watching) return;
       watching = false;
       clearInterval(interval);
-      navigator.geolocation.clearWatch(watchId);
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
     }
 
     function resetMeter() {
@@ -118,49 +108,49 @@
       fare = parseFloat(document.getElementById('baseFare').value);
       distance = 0;
       timeMinutes = 0;
+      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
+      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
       lastPosition = null;
-      document.getElementById('fare').innerText = `$0.00`;
-    }
-
-    function calculateFare() {
-      const perKm = parseFloat(document.getElementById('perKm').value);
-      const perMin = parseFloat(document.getElementById('perMin').value);
-      let total = fare + (distance * perKm) + (timeMinutes * perMin);
-      document.getElementById('fare').innerText = `$${total.toFixed(2)}`;
     }
 
     function updatePosition(position) {
       if (lastPosition) {
-        const d = getDistanceFromLatLonInKm(
+        const d = calculateDistance(
           lastPosition.coords.latitude,
           lastPosition.coords.longitude,
           position.coords.latitude,
           position.coords.longitude
         );
         distance += d;
+        updateFare();
       }
       lastPosition = position;
     }
 
-    function handleError(error) {
-      console.error(error);
+    function updateFare() {
+      let perKm = parseFloat(document.getElementById('perKm').value);
+      let perMin = parseFloat(document.getElementById('perMin').value);
+      let baseFare = parseFloat(document.getElementById('baseFare').value);
+
+      fare = baseFare + (distance * perKm) + (timeMinutes * perMin);
+
+      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
+      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
     }
 
-    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Radius of the earth in km
-      const dLat = deg2rad(lat2 - lat1);
-      const dLon = deg2rad(lon2 - lon1);
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
       const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const d = R * c; // Distance in km
-      return d;
+        0.5 - Math.cos(dLat)/2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        (1 - Math.cos(dLon))/2;
+      return R * 2 * Math.asin(Math.sqrt(a));
     }
 
-    function deg2rad(deg) {
-      return deg * (Math.PI / 180);
+    function errorPosition() {
+      alert("Unable to retrieve location.");
     }
   </script>
 </body>
