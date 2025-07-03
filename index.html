@@ -95,12 +95,20 @@
     }
 
     function stopMeter() {
-      if (!watching) return;
-      watching = false;
-      clearInterval(interval);
-      if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-      }
+  if (!watching) return;
+  watching = false;
+  clearInterval(interval);
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+  }
+
+  // Calculate summary
+  let totalTime = timeMinutes;
+  let totalDistance = distance.toFixed(2);
+  let totalFare = fare.toFixed(2);
+
+  // Show alert popup
+  alert(`Trip Summary:\n\nTotal Fare: $${totalFare}\nTotal Distance: ${totalDistance} km\nTotal Time: ${totalTime} min`);
     }
 
     function resetMeter() {
