@@ -4,21 +4,35 @@
   <title>GPS Taxi Meter</title>
   <style>
     body {
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to bottom, #ffcc00 33%, #00a550 33%, #00a550 66%, #ff0000 66%);
-      text-align: center;
-    }
-    .meter-box {
-      background: white;
-      padding: 20px;
-      margin: 50px auto;
-      width: 300px;
-      border-radius: 20px;
-      box-shadow: 0 0 20px #ffff33;
-      animation: glow 2s infinite alternate;
-    }
+    body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(to bottom, #ffcc00 33%, #339933 33%, #339933 66%, #ff0000 66%);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100vh;
+}
+
+h1 {
+  font-size: 2.5em;
+}
+
+p {
+  font-size: 1.2em;
+}
+
+.meter-box {
+  background: white;
+  padding: 20px;
+  margin: 20px auto;
+  width: 300px;
+  border-radius: 20px;
+  box-shadow: 0 0 20px #ffff33;
+  animation: glow 2s infinite alternate;
+}
     @keyframes glow {
       from {
         box-shadow: 0 0 10px #ffff33;
