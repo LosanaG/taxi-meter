@@ -4,135 +4,99 @@
   <title>GPS Taxi Meter</title>
   <style>
     body {
+      margin: 0;
+      padding: 0;
       font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom, #ffcc00 33%, #00a550 33%, #00a550 66%, #ff0000 66%);
       text-align: center;
     }
-    label, #fare, #distance {
-      font-size: 1.5em;
-      display: block;
-      margin: 10px 0;
+    .meter-box {
+      background: white;
+      padding: 20px;
+      margin: 50px auto;
+      width: 300px;
+      border-radius: 20px;
+      box-shadow: 0 0 20px #ffff33;
+      animation: glow 2s infinite alternate;
+    }
+    @keyframes glow {
+      from {
+        box-shadow: 0 0 10px #ffff33;
+      }
+      to {
+        box-shadow: 0 0 30px #ffff33;
+      }
     }
     input {
-      font-size: 1.2em;
-      width: 80px;
+      width: 80%;
+      padding: 5px;
+      margin: 5px 0;
+      font-size: 16px;
     }
     button {
-      font-size: 1.5em;
-      padding: 15px 30px;
-      margin: 10px 5px;
-      border-radius: 8px;
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
       border: none;
+      border-radius: 5px;
       cursor: pointer;
     }
-    .start { background-color: green; color: white; }
-    .stop { background-color: red; color: white; }
-    .reset { background-color: gray; color: white; }
+    button#start { background: green; color: white; }
+    button#stop { background: red; color: white; }
+    button#reset { background: gold; color: black; }
   </style>
 </head>
 <body>
   <h1>GPS Taxi Meter</h1>
-  <label>Base Fare: $<input type="number" id="baseFare" value="2"></label>
-  <label>Per km: $<input type="number" id="perKm" value="1.5"></label>
-  <label>Per minute: $<input type="number" id="perMinute" value="0.5"></label>
-  <div id="fare">$0.00</div>
-  <div id="distance">Distance: 0.00 km</div>
-  <button class="start" onclick="startMeter()">Start</button>
-  <button class="stop" onclick="stopMeter()">Stop</button>
-  <button class="reset" onclick="resetMeter()">Reset</button>
-  <button onclick="toggleSimulate()">Toggle Simulate</button>
+  <p>Now you can calculate your taxi fare easily!</p>
+
+  <div class="meter-box">
+    <div>
+      Base Fare: <input type="number" id="baseFare" value="3"><br>
+      Per km: <input type="number" id="perKm" value="1"><br>
+      Per minute: <input type="number" id="perMin" value="0.5"><br>
+    </div>
+    <h2 id="fare">$0.00</h2>
+    <button id="start">Start</button>
+    <button id="stop">Stop</button>
+    <button id="reset">Reset</button>
+  </div>
 
   <script>
     let fare = 0;
+    let timer;
     let distance = 0;
     let timeMinutes = 0;
-    let interval;
-    let watching = false;
-    let startTime, watchId;
-    let lastPosition;
-    let simulateInterval;
 
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = 
-        0.5 - Math.cos(dLat)/2 + 
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        (1 - Math.cos(dLon))/2;
-      return R * 2 * Math.asin(Math.sqrt(a));
-    }
+    document.getElementById("start").onclick = function() {
+      const base = parseFloat(document.getElementById("baseFare").value);
+      const perKm = parseFloat(document.getElementById("perKm").value);
+      const perMin = parseFloat(document.getElementById("perMin").value);
+      fare = base;
+      timeMinutes = 0;
+      distance = 0;
+      updateFare();
+      timer = setInterval(function() {
+        timeMinutes += 1;
+        distance += 0.5; // Just as a sample, you can connect to real GPS if needed
+        fare = base + (distance * perKm) + (timeMinutes * perMin);
+        updateFare();
+      }, 60000); // Updates every minute
+    };
+
+    document.getElementById("stop").onclick = function() {
+      clearInterval(timer);
+    };
+
+    document.getElementById("reset").onclick = function() {
+      clearInterval(timer);
+      fare = 0;
+      updateFare();
+    };
 
     function updateFare() {
-      const baseFare = parseFloat(document.getElementById('baseFare').value);
-      const perKm = parseFloat(document.getElementById('perKm').value);
-      const perMinute = parseFloat(document.getElementById('perMinute').value);
-
-      fare = baseFare + (distance * perKm) + (timeMinutes * perMinute);
-
-      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
-      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
+      document.getElementById("fare").innerText = "$" + fare.toFixed(2);
     }
-
-    function startMeter() {
-      if (watching) return;
-      startTime = new Date();
-      watchId = navigator.geolocation.watchPosition(successPosition, errorPosition);
-      interval = setInterval(() => {
-        const now = new Date();
-        timeMinutes = (now - startTime) / 60000;
-        updateFare();
-      }, 10000);
-      watching = true;
-    }
-
-    function stopMeter() {
-      if (!watching) return;
-      clearInterval(interval);
-      navigator.geolocation.clearWatch(watchId);
-      watching = false;
-    }
-
-    function resetMeter() {
-      stopMeter();
-      fare = 0;
-      distance = 0;
-      timeMinutes = 0;
-      updateFare();
-    }
-
-    function successPosition(position) {
-      if (lastPosition) {
-        const dist = calculateDistance(
-          lastPosition.latitude, lastPosition.longitude,
-          position.coords.latitude, position.coords.longitude
-        );
-        distance += dist;
-      }
-      lastPosition = position.coords;
-      updateFare();
-    }
-
-    function errorPosition() {
-      alert("Unable to retrieve location");
-    }
-
-    function simulateMovement() {
-      distance += 0.05; // simulate 0.05 km
-      updateFare();
-    }
-
-    function toggleSimulate() {
-      if (simulateInterval) {
-        clearInterval(simulateInterval);
-        simulateInterval = null;
-        alert("Simulation stopped!");
-      } else {
-        simulateInterval = setInterval(simulateMovement, 10000);
-        alert("Simulation started!");
-      }
-    }
-
-    updateFare();
   </script>
 </body>
 </html>
