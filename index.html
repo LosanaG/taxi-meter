@@ -4,35 +4,52 @@
   <title>GPS Taxi Meter</title>
   <style>
     body {
-    body {
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(to bottom, #ffcc00 33%, #339933 33%, #339933 66%, #ff0000 66%);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  height: 100vh;
-}
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: repeating-linear-gradient(
+        to bottom,
+        #ffcc00 0%,
+        #ffcc00 20%,
+        #00a651 20%,
+        #00a651 40%,
+        #ff0000 40%,
+        #ff0000 60%,
+        #ffcc00 60%,
+        #ffcc00 80%,
+        #00a651 80%,
+        #00a651 100%
+      );
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+    }
 
-h1 {
-  font-size: 2.5em;
-}
+    h1 {
+      font-size: 2em;
+      margin: 10px 0;
+      color: black;
+    }
 
-p {
-  font-size: 1.2em;
-}
+    p {
+      font-size: 1.2em;
+      margin: 5px 0 20px 0;
+      color: black;
+    }
 
-.meter-box {
-  background: white;
-  padding: 20px;
-  margin: 20px auto;
-  width: 300px;
-  border-radius: 20px;
-  box-shadow: 0 0 20px #ffff33;
-  animation: glow 2s infinite alternate;
-}
+    .meter-box {
+      background: white;
+      padding: 20px;
+      margin: 20px;
+      width: 300px;
+      border-radius: 20px;
+      box-shadow: 0 0 20px #ffff33;
+      animation: glow 2s infinite alternate;
+    }
+
     @keyframes glow {
       from {
         box-shadow: 0 0 10px #ffff33;
@@ -41,34 +58,36 @@ p {
         box-shadow: 0 0 30px #ffff33;
       }
     }
-    input {
-      width: 80%;
-      padding: 5px;
-      margin: 5px 0;
-      font-size: 16px;
-    }
-    button {
-      padding: 10px 20px;
+
+    input, button {
       margin: 5px;
-      font-size: 16px;
+      padding: 8px;
+      font-size: 1em;
+      width: 80%;
+    }
+
+    button {
       border: none;
       border-radius: 5px;
       cursor: pointer;
     }
-    button#start { background: green; color: white; }
-    button#stop { background: red; color: white; }
-    button#reset { background: gold; color: black; }
+
+    button#start { background-color: green; color: white; }
+    button#stop { background-color: red; color: white; }
+    button#reset { background-color: yellow; color: black; }
   </style>
 </head>
 <body>
   <h1>GPS Taxi Meter</h1>
   <p>Now you can calculate your taxi fare easily!</p>
-
   <div class="meter-box">
     <div>
-      Base Fare: <input type="number" id="baseFare" value="3"><br>
-      Per km: <input type="number" id="perKm" value="1"><br>
-      Per minute: <input type="number" id="perMin" value="0.5"><br>
+      <label>Base Fare:</label><br>
+      <input type="number" id="baseFare" value="3"><br>
+      <label>Per km:</label><br>
+      <input type="number" id="perKm" value="1"><br>
+      <label>Per minute:</label><br>
+      <input type="number" id="perMin" value="0.5"><br>
     </div>
     <h2 id="fare">$0.00</h2>
     <button id="start">Start</button>
@@ -78,39 +97,42 @@ p {
 
   <script>
     let fare = 0;
-    let timer;
     let distance = 0;
-    let timeMinutes = 0;
+    let minutes = 0;
+    let timer = null;
 
-    document.getElementById("start").onclick = function() {
-      const base = parseFloat(document.getElementById("baseFare").value);
-      const perKm = parseFloat(document.getElementById("perKm").value);
-      const perMin = parseFloat(document.getElementById("perMin").value);
-      fare = base;
-      timeMinutes = 0;
+    const baseFareInput = document.getElementById("baseFare");
+    const perKmInput = document.getElementById("perKm");
+    const perMinInput = document.getElementById("perMin");
+    const fareDisplay = document.getElementById("fare");
+
+    document.getElementById("start").addEventListener("click", () => {
+      if (timer) return;
+      fare = parseFloat(baseFareInput.value);
       distance = 0;
-      updateFare();
-      timer = setInterval(function() {
-        timeMinutes += 1;
-        distance += 0.5; // Just as a sample, you can connect to real GPS if needed
-        fare = base + (distance * perKm) + (timeMinutes * perMin);
-        updateFare();
-      }, 60000); // Updates every minute
-    };
+      minutes = 0;
 
-    document.getElementById("stop").onclick = function() {
+      timer = setInterval(() => {
+        distance += 0.1; // Simulate 0.1 km per second
+        minutes += 1 / 60; // Simulate 1 second as 1/60 of a minute
+
+        let currentFare = parseFloat(baseFareInput.value)
+                        + (distance * parseFloat(perKmInput.value))
+                        + (minutes * parseFloat(perMinInput.value));
+        fareDisplay.textContent = `$${currentFare.toFixed(2)}`;
+      }, 1000);
+    });
+
+    document.getElementById("stop").addEventListener("click", () => {
       clearInterval(timer);
-    };
+      timer = null;
+    });
 
-    document.getElementById("reset").onclick = function() {
+    document.getElementById("reset").addEventListener("click", () => {
       clearInterval(timer);
-      fare = 0;
-      updateFare();
-    };
-
-    function updateFare() {
-      document.getElementById("fare").innerText = "$" + fare.toFixed(2);
-    }
+      timer = null;
+      fareDisplay.textContent = "$0.00";
+    });
   </script>
 </body>
 </html>
