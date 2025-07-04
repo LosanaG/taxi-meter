@@ -6,151 +6,98 @@
   <style>
     body {
       margin: 0;
-      padding: 0;
       font-family: 'Orbitron', sans-serif;
-      background: linear-gradient(to bottom, yellow, green, red, yellow, green);
-      text-align: center;
+      background: repeating-linear-gradient(
+        to bottom,
+        #ff0 0px,
+        #ff0 100px,
+        #0f0 100px,
+        #0f0 200px,
+        #f00 200px,
+        #f00 300px
+      );
+    }
+    .center-screen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
     }
     .container {
-      margin-top: 50px;
-    }
-    .meter-box {
       background: white;
       padding: 20px;
       border-radius: 15px;
-      box-shadow: 0 0 20px red;
-      display: inline-block;
+      box-shadow: 0 0 30px red;
+      text-align: center;
+      width: 250px;
     }
     h1 {
-      color: black;
+      margin-top: 0;
     }
     button {
+      margin: 5px;
       padding: 10px 20px;
       border: none;
-      border-radius: 5px;
       color: white;
+      border-radius: 5px;
       font-size: 16px;
-      margin: 5px;
       cursor: pointer;
     }
-    #startBtn { background-color: green; }
-    #stopBtn { background-color: red; }
-    #resetBtn { background-color: yellow; color: black; }
+    .start-btn { background-color: green; }
+    .stop-btn { background-color: red; }
+    .reset-btn { background-color: gold; color: black; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>GPS Taxi Meter</h1>
-    <p>Now you can calculate your taxi fare easily!</p>
-    <div class="meter-box">
-      Base Fare: <input type="number" id="baseFare" value="2"><br><br>
-      Per km: <input type="number" id="perKm" value="1"><br><br>
-      Per minute: <input type="number" id="perMin" value="0.5"><br><br>
-      <h2 id="fare">$0.00</h2>
-      <button id="startBtn">Start</button>
-      <button id="stopBtn">Stop</button>
-      <button id="resetBtn">Reset</button>
+  <div class="center-screen">
+    <div class="container">
+      <h1>GPS Taxi Meter</h1>
+      <p>Now you can calculate your taxi fare easily!</p>
+      <label>Base Fare: <input type="number" id="baseFare" value="2"></label><br><br>
+      <label>Per km: <input type="number" id="perKm" value="1"></label><br><br>
+      <label>Per minute: <input type="number" id="perMin" value="0.5"></label><br><br>
+      <h2 id="fare">$2.00</h2>
+      <button class="start-btn" onclick="startMeter()">Start</button>
+      <button class="stop-btn" onclick="stopMeter()">Stop</button>
+      <button class="reset-btn" onclick="resetMeter()">Reset</button>
     </div>
   </div>
 
-  <!-- Sounds -->
-  <audio id="tickSound" loop>
-    <source src="https://actions.google.com/sounds/v1/alarms/analog_watch_alarm_long.ogg" type="audio/ogg">
-    Your browser does not support the audio element.
-  </audio>
-  <audio id="dingSound">
-    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
-    Your browser does not support the audio element.
-  </audio>
-
   <script>
-    let fare = 0;
+    let fare = 2;
     let distance = 0;
     let minutes = 0;
     let interval;
-    let watchId;
 
-    const fareDisplay = document.getElementById('fare');
-    const tickSound = document.getElementById('tickSound');
-    const dingSound = document.getElementById('dingSound');
+    function updateFare() {
+      const base = parseFloat(document.getElementById('baseFare').value);
+      const perKm = parseFloat(document.getElementById('perKm').value);
+      const perMin = parseFloat(document.getElementById('perMin').value);
+      fare = base + (distance * perKm) + (minutes * perMin);
+      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
+    }
 
-    document.getElementById('startBtn').addEventListener('click', function() {
-      fare = parseFloat(document.getElementById('baseFare').value);
+    function startMeter() {
+      stopMeter();
+      interval = setInterval(() => {
+        distance += 0.1; // simulate 100m per interval
+        minutes += 0.5;  // simulate 30 seconds per interval
+        updateFare();
+      }, 1000);
+    }
+
+    function stopMeter() {
+      clearInterval(interval);
+    }
+
+    function resetMeter() {
+      stopMeter();
       distance = 0;
       minutes = 0;
-      fareDisplay.textContent = `$${fare.toFixed(2)}`;
-
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(updateFare, error, { enableHighAccuracy: true });
-      }
-
-      interval = setInterval(() => {
-        minutes++;
-        fare += parseFloat(document.getElementById('perMin').value);
-        fareDisplay.textContent = `$${fare.toFixed(2)}`;
-      }, 60000); // Update per minute
-
-      tickSound.play();
-    });
-
-    document.getElementById('stopBtn').addEventListener('click', function() {
-      clearInterval(interval);
-      if (navigator.geolocation && watchId) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-      tickSound.pause();
-      tickSound.currentTime = 0;
-      dingSound.play();
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', function() {
-      clearInterval(interval);
-      if (navigator.geolocation && watchId) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-      fare = 0;
-      fareDisplay.textContent = "$0.00";
-      tickSound.pause();
-      tickSound.currentTime = 0;
-    });
-
-    let lastPosition = null;
-
-    function updateFare(position) {
-      if (lastPosition) {
-        const d = getDistanceFromLatLonInKm(
-          lastPosition.coords.latitude,
-          lastPosition.coords.longitude,
-          position.coords.latitude,
-          position.coords.longitude
-        );
-        distance += d;
-        fare += d * parseFloat(document.getElementById('perKm').value);
-        fareDisplay.textContent = `$${fare.toFixed(2)}`;
-      }
-      lastPosition = position;
+      updateFare();
     }
 
-    function error(err) {
-      console.warn(`ERROR(${err.code}): ${err.message}`);
-    }
-
-    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Radius of the earth in km
-      const dLat = deg2rad(lat2 - lat1);
-      const dLon = deg2rad(lon2 - lon1);
-      const a =
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const d = R * c; // Distance in km
-      return d;
-    }
-
-    function deg2rad(deg) {
-      return deg * (Math.PI / 180);
-    }
+    window.onload = updateFare;
   </script>
 </body>
-</html
+</html>
