@@ -6,32 +6,23 @@
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      background: linear-gradient(to bottom right, #6dd5fa, #2980b9);
-      color: white;
-      padding: 20px;
+    }
+    label, #fare, #distance {
+      font-size: 1.5em;
+      display: block;
+      margin: 10px 0;
     }
     input {
       font-size: 1.2em;
-      margin: 5px;
-      padding: 5px;
+      width: 80px;
     }
     button {
-      font-size: 1.2em;
-      margin: 10px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    #fare {
-      font-size: 2.5em;
-      margin-top: 20px;
-      color: lime;
-    }
-    #distance {
       font-size: 1.5em;
-      margin-top: 10px;
-      color: #ffeb3b;
+      padding: 15px 30px;
+      margin: 10px 5px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
     }
     .start { background-color: green; color: white; }
     .stop { background-color: red; color: white; }
@@ -40,14 +31,15 @@
 </head>
 <body>
   <h1>GPS Taxi Meter</h1>
-  <label>Base Fare: $<input type="number" id="baseFare" step="0.1"></label><br>
-  <label>Per km: $<input type="number" id="perKm" value="1" step="0.1"></label><br>
-  <label>Per minute: $<input type="number" id="perMin" value="0.5" step="0.1"></label><br>
+  <label>Base Fare: $<input type="number" id="baseFare" value="2"></label>
+  <label>Per km: $<input type="number" id="perKm" value="1.5"></label>
+  <label>Per minute: $<input type="number" id="perMinute" value="0.5"></label>
   <div id="fare">$0.00</div>
   <div id="distance">Distance: 0.00 km</div>
   <button class="start" onclick="startMeter()">Start</button>
   <button class="stop" onclick="stopMeter()">Stop</button>
   <button class="reset" onclick="resetMeter()">Reset</button>
+  <button onclick="toggleSimulate()">Toggle Simulate</button>
 
   <script>
     let fare = 0;
@@ -57,117 +49,90 @@
     let watching = false;
     let startTime, watchId;
     let lastPosition;
+    let simulateInterval;
 
-    function setBaseFareByTime() {
-      const now = new Date();
-      const hour = now.getHours();
-      let baseFare = 2.0;
-      if (hour >= 22 || hour < 5) {
-        baseFare = 3.0;
-      }
-      document.getElementById('baseFare').value = baseFare;
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        0.5 - Math.cos(dLat)/2 + 
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        (1 - Math.cos(dLon))/2;
+      return R * 2 * Math.asin(Math.sqrt(a));
     }
 
-    setBaseFareByTime();
+    function updateFare() {
+      const baseFare = parseFloat(document.getElementById('baseFare').value);
+      const perKm = parseFloat(document.getElementById('perKm').value);
+      const perMinute = parseFloat(document.getElementById('perMinute').value);
+
+      fare = baseFare + (distance * perKm) + (timeMinutes * perMinute);
+
+      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
+      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
+    }
 
     function startMeter() {
       if (watching) return;
-      watching = true;
-      fare = parseFloat(document.getElementById('baseFare').value);
-      distance = 0;
-      timeMinutes = 0;
       startTime = new Date();
-      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
-      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
-
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(updatePosition, errorPosition, {
-          enableHighAccuracy: true
-        });
-      } else {
-        alert("Geolocation is not supported by this browser.");
-      }
-
+      watchId = navigator.geolocation.watchPosition(successPosition, errorPosition);
       interval = setInterval(() => {
-        timeMinutes++;
+        const now = new Date();
+        timeMinutes = (now - startTime) / 60000;
         updateFare();
-      }, 60000);
+      }, 10000);
+      watching = true;
     }
 
     function stopMeter() {
-  if (!watching) return;
-  watching = false;
-  clearInterval(interval);
-  if (watchId) {
-    navigator.geolocation.clearWatch(watchId);
-  }
-
-  // Calculate summary
-  let totalTime = timeMinutes;
-  let totalDistance = distance.toFixed(2);
-  let totalFare = fare.toFixed(2);
-
-  // Show alert popup
-  alert(`Trip Summary:\n\nTotal Fare: $${totalFare}\nTotal Distance: ${totalDistance} km\nTotal Time: ${totalTime} min`);
+      if (!watching) return;
+      clearInterval(interval);
+      navigator.geolocation.clearWatch(watchId);
+      watching = false;
     }
 
     function resetMeter() {
       stopMeter();
-      fare = parseFloat(document.getElementById('baseFare').value);
+      fare = 0;
       distance = 0;
       timeMinutes = 0;
-      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
-      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
-      lastPosition = null;
+      updateFare();
     }
 
-    function updatePosition(position) {
+    function successPosition(position) {
       if (lastPosition) {
-        const d = calculateDistance(
-          lastPosition.coords.latitude,
-          lastPosition.coords.longitude,
-          position.coords.latitude,
-          position.coords.longitude
+        const dist = calculateDistance(
+          lastPosition.latitude, lastPosition.longitude,
+          position.coords.latitude, position.coords.longitude
         );
-        distance += d;
-        updateFare();
+        distance += dist;
       }
-      lastPosition = position;
+      lastPosition = position.coords;
+      updateFare();
     }
 
-    function updateFare() {
-      let perKm = parseFloat(document.getElementById('perKm').value);
-      let perMin = parseFloat(document.getElementById('perMin').value);
-      let baseFare = parseFloat(document.getElementById('baseFare').value);
-
-      fare = baseFare + (distance * perKm) + (timeMinutes * perMin);
-
-      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
-      document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
-    }
-
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a =
-        0.5 - Math.cos(dLat)/2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        (1 - Math.cos(dLon))/2;
-      return R * 2 * Math.asin(Math.sqrt(a));
-    } 
-// Add this function to simulate movement
-function simulateMovement() {
-  // Simulate moving about 0.05 km each time
-  distance += 0.05;
-  updateFare();
-}
-
-// Run every 10 seconds
-setInterval(simulateMovement, 10000);
     function errorPosition() {
-      alert("Unable to retrieve location.");
+      alert("Unable to retrieve location");
     }
+
+    function simulateMovement() {
+      distance += 0.05; // simulate 0.05 km
+      updateFare();
+    }
+
+    function toggleSimulate() {
+      if (simulateInterval) {
+        clearInterval(simulateInterval);
+        simulateInterval = null;
+        alert("Simulation stopped!");
+      } else {
+        simulateInterval = setInterval(simulateMovement, 10000);
+        alert("Simulation started!");
+      }
+    }
+
+    updateFare();
   </script>
 </body>
 </html>
