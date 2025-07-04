@@ -2,50 +2,54 @@
 <html>
 <head>
   <title>GPS Taxi Meter</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+
     body {
-      margin: 0;
       font-family: 'Orbitron', sans-serif;
-      background: repeating-linear-gradient(
-        to bottom,
-        #ff0 0px,
-        #ff0 100px,
-        #0f0 100px,
-        #0f0 200px,
-        #f00 200px,
-        #f00 300px
-      );
+      background: linear-gradient(180deg, green, yellow, red, green);
+      margin: 0;
+      padding: 0;
     }
+
     .center-screen {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
+      justify-content: center;
+      min-height: 100vh;
     }
+
     .container {
       background: white;
-      padding: 20px;
-      border-radius: 15px;
-      box-shadow: 0 0 30px red;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
       text-align: center;
-      width: 250px;
+      width: 320px;
     }
-    h1 {
-      margin-top: 0;
-    }
-    button {
-      margin: 5px;
+
+    .btn {
       padding: 10px 20px;
+      margin: 5px;
       border: none;
-      color: white;
       border-radius: 5px;
-      font-size: 16px;
+      font-size: 18px;
       cursor: pointer;
     }
-    .start-btn { background-color: green; }
-    .stop-btn { background-color: red; }
+    .start-btn { background-color: green; color: white; }
+    .stop-btn { background-color: red; color: white; }
     .reset-btn { background-color: gold; color: black; }
+
+    #map {
+      height: 300px;
+      width: 90%;
+      margin-top: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    h1 { margin-top: 0; }
   </style>
 </head>
 <body>
@@ -55,49 +59,138 @@
       <p>Now you can calculate your taxi fare easily!</p>
       <label>Base Fare: <input type="number" id="baseFare" value="2"></label><br><br>
       <label>Per km: <input type="number" id="perKm" value="1"></label><br><br>
-      <label>Per minute: <input type="number" id="perMin" value="0.5"></label><br><br>
-      <h2 id="fare">$2.00</h2>
-      <button class="start-btn" onclick="startMeter()">Start</button>
-      <button class="stop-btn" onclick="stopMeter()">Stop</button>
-      <button class="reset-btn" onclick="resetMeter()">Reset</button>
+      <label>Per minute: <input type="number" id="perMinute" value="0.5"></label><br><br>
+      <h2 id="fare">$0.00</h2>
+      <button class="btn start-btn" onclick="startMeter()">Start</button>
+      <button class="btn stop-btn" onclick="stopMeter()">Stop</button>
+      <button class="btn reset-btn" onclick="resetMeter()">Reset</button>
+      <div id="map"></div>
     </div>
   </div>
 
-  <script>
-    let fare = 2;
-    let distance = 0;
-    let minutes = 0;
-    let interval;
+  <audio id="startSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+  <audio id="stopSound" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
 
-    function updateFare() {
-      const base = parseFloat(document.getElementById('baseFare').value);
-      const perKm = parseFloat(document.getElementById('perKm').value);
-      const perMin = parseFloat(document.getElementById('perMin').value);
-      fare = base + (distance * perKm) + (minutes * perMin);
-      document.getElementById('fare').innerText = `$${fare.toFixed(2)}`;
-    }
+  <script>
+    let watchId;
+    let startTime, totalFare, lastPosition;
+    let interval;
+    let map, marker, path;
 
     function startMeter() {
-      stopMeter();
-      interval = setInterval(() => {
-        distance += 0.1; // simulate 100m per interval
-        minutes += 0.5;  // simulate 30 seconds per interval
-        updateFare();
-      }, 1000);
+      document.getElementById('startSound').play();
+      startTime = new Date();
+      totalFare = parseFloat(document.getElementById("baseFare").value);
+      lastPosition = null;
+      document.getElementById("fare").innerText = `$${totalFare.toFixed(2)}`;
+
+      document.getElementById("map").style.display = "block";
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(initMap, handleError);
+        watchId = navigator.geolocation.watchPosition(updatePosition, handleError, {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        });
+      }
+
+      interval = setInterval(updateTimeFare, 60000);
     }
 
     function stopMeter() {
+      document.getElementById('stopSound').play();
       clearInterval(interval);
+      if (navigator.geolocation && watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
     }
 
     function resetMeter() {
-      stopMeter();
-      distance = 0;
-      minutes = 0;
-      updateFare();
+      clearInterval(interval);
+      document.getElementById("fare").innerText = "$0.00";
+      if (navigator.geolocation && watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      if (path) {
+        path.setMap(null);
+      }
+      document.getElementById("map").style.display = "none";
     }
 
-    window.onload = updateFare;
+    function updateTimeFare() {
+      const perMinute = parseFloat(document.getElementById("perMinute").value);
+      totalFare += perMinute;
+      document.getElementById("fare").innerText = `$${totalFare.toFixed(2)}`;
+    }
+
+    function initMap(position) {
+      const { latitude, longitude } = position.coords;
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: latitude, lng: longitude },
+        zoom: 16,
+      });
+      marker = new google.maps.Marker({
+        position: { lat: latitude, lng: longitude },
+        map: map,
+      });
+      path = new google.maps.Polyline({
+        path: [{ lat: latitude, lng: longitude }],
+        geodesic: true,
+        strokeColor: "#FF0000",
+        strokeOpacity: 1.0,
+        strokeWeight: 2,
+        map: map,
+      });
+    }
+
+    function updatePosition(position) {
+      const { latitude, longitude } = position.coords;
+      if (marker) {
+        marker.setPosition({ lat: latitude, lng: longitude });
+        map.panTo({ lat: latitude, lng: longitude });
+      }
+      if (path) {
+        const newPath = path.getPath();
+        newPath.push(new google.maps.LatLng(latitude, longitude));
+      }
+      if (lastPosition) {
+        const distance = getDistanceFromLatLonInKm(
+          lastPosition.latitude,
+          lastPosition.longitude,
+          latitude,
+          longitude
+        );
+        const perKm = parseFloat(document.getElementById("perKm").value);
+        totalFare += distance * perKm;
+        document.getElementById("fare").innerText = `$${totalFare.toFixed(2)}`;
+      }
+      lastPosition = { latitude, longitude };
+    }
+
+    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = deg2rad(lat2 - lat1);
+      const dLon = deg2rad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function deg2rad(deg) {
+      return deg * (Math.PI / 180);
+    }
+
+    function handleError(error) {
+      console.error("Error getting location:", error);
+    }
+  </script>
+
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
   </script>
 </body>
-</html>
+</html
